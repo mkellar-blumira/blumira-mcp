@@ -7,7 +7,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server for t
 - Node.js 18 or later
 - A Blumira JWT access token
 
-## Installation
+## Quick Start
 
 ```bash
 git clone https://gitlab.com/mkellar/blumira-mcp.git
@@ -16,19 +16,26 @@ npm install
 npm run build
 ```
 
-## Configuration
-
-Set your Blumira access token as an environment variable:
+Copy `.env.example` to `.env` and fill in your token:
 
 ```bash
-export BLUMIRA_ACCESS_TOKEN="your-jwt-token-here"
+cp .env.example .env
+# Edit .env and set BLUMIRA_ACCESS_TOKEN
 ```
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `BLUMIRA_ACCESS_TOKEN` | Yes | — | JWT access token for Bearer authentication |
+| `BLUMIRA_BASE_URL` | No | `https://api.blumira.com/public-api/v1` | API base URL |
+| `BLUMIRA_LOG_LEVEL` | No | `info` | Log level: debug, info, warn, error |
 
 ## Usage
 
 ### Cursor
 
-Add to your Cursor MCP settings (`.cursor/mcp.json`):
+Add to `.cursor/mcp.json`:
 
 ```json
 {
@@ -46,7 +53,7 @@ Add to your Cursor MCP settings (`.cursor/mcp.json`):
 
 ### Claude Desktop
 
-Add to your Claude Desktop config (`claude_desktop_config.json`):
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -62,13 +69,42 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
 }
 ```
 
+### Docker
+
+```bash
+docker build -t blumira-mcp .
+docker run --rm -i -e BLUMIRA_ACCESS_TOKEN="your-token" blumira-mcp
+```
+
 ### Direct / stdio
 
 ```bash
 BLUMIRA_ACCESS_TOKEN="your-token" node dist/index.js
 ```
 
-The server communicates via JSON-RPC over stdin/stdout.
+## Architecture
+
+The project follows a **tools vs libs** separation inspired by [SentinelOne's purple-mcp](https://github.com/Sentinel-One/purple-mcp):
+
+```
+src/
+├── index.ts              # Entry point — boots server, validates config
+├── config.ts             # Configuration from env vars (cached singleton)
+├── errors.ts             # Typed error hierarchy (Auth, Network, Validation, API)
+├── logger.ts             # Structured JSON logger with secret redaction
+├── libs/
+│   └── blumira-client.ts # Standalone API client — zero MCP dependency, explicit config
+└── tools/
+    ├── descriptions.ts   # Rich multi-line tool descriptions for LLM accuracy
+    └── register.ts       # Thin MCP adapters that bridge libs → MCP protocol
+```
+
+**Key principles:**
+
+- **libs/** contains standalone, reusable business logic with no global state and no MCP imports. All configuration is passed explicitly. Fully testable in isolation.
+- **tools/** contains thin adapters that read settings, construct a client, delegate to the library, and format the result for MCP.
+- **Structured errors** (`BlumiraAuthenticationError`, `BlumiraApiError`, etc.) give the LLM actionable context when things go wrong.
+- **Secret redaction** ensures tokens never appear in log output.
 
 ## Available Tools
 
@@ -133,14 +169,14 @@ The server communicates via JSON-RPC over stdin/stdout.
 
 ## Common Parameters
 
-### Pagination (for list tools)
+### Pagination (list tools)
 
 - `page` — page number (1-based)
 - `page_size` — items per page (1–200)
 - `order_by` — ordering expression, e.g. `created;desc`
 - `return_all` — automatically fetch all pages (default: false)
 
-### Finding Filters (for finding list tools)
+### Finding Filters (finding list tools)
 
 - `blocked` — filter by blocked status
 - `category` — category ID
@@ -159,8 +195,8 @@ The server communicates via JSON-RPC over stdin/stdout.
 
 ```bash
 npm install
-npm run build
-npm run lint     # type-check only
+npm run build    # compile TypeScript
+npm run lint     # type-check only (tsc --noEmit)
 ```
 
 ## License
