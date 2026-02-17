@@ -15,7 +15,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getSettings } from "../config.js";
 import { BlumiraClient } from "../libs/blumira-client.js";
-import type { FindingFilters, PaginationParams } from "../libs/blumira-client.js";
+import type { FindingFilters, PaginationParams, ResolveParams, AssignOwnersParams, AddCommentParams } from "../libs/blumira-client.js";
 import { BlumiraError } from "../errors.js";
 import { logger } from "../logger.js";
 import * as desc from "./descriptions.js";
@@ -274,6 +274,133 @@ export function registerTools(server: McpServer): void {
     { finding_id: z.string().describe("UUID of the finding") },
     async (args) => {
       try { return jsonResult(await getClient().getOrgFindingDetails(args.finding_id)); }
+      catch (err) { return errorResult(err); }
+    },
+  );
+
+  // Org Finding Actions (POST)
+  server.tool(
+    "blumira_resolve_org_finding", desc.RESOLVE_ORG_FINDING_DESCRIPTION,
+    {
+      finding_id: z.string().describe("UUID of the finding to resolve"),
+      resolution: z.number().int().positive().describe("Resolution ID (e.g. 10=Valid, 20=False Positive, 30=No Action Needed, 40=Risk Accepted)"),
+      resolution_notes: z.string().optional().describe("Optional notes explaining the resolution"),
+    },
+    async (args) => {
+      try {
+        const params: ResolveParams = { resolution: args.resolution };
+        if (args.resolution_notes !== undefined) params.resolution_notes = args.resolution_notes;
+        return jsonResult(await getClient().resolveOrgFinding(args.finding_id, params));
+      } catch (err) { return errorResult(err); }
+    },
+  );
+
+  server.tool(
+    "blumira_assign_org_finding", desc.ASSIGN_ORG_FINDING_DESCRIPTION,
+    {
+      finding_id: z.string().describe("UUID of the finding"),
+      owners: z.array(z.string()).describe("Array of person UUIDs to assign. Empty array clears owners."),
+      owner_type: z.string().describe("Type of owners (lowercase), e.g. 'responder', 'administrator'"),
+    },
+    async (args) => {
+      try {
+        const params: AssignOwnersParams = { owners: args.owners, owner_type: args.owner_type };
+        return jsonResult(await getClient().assignOrgFinding(args.finding_id, params));
+      } catch (err) { return errorResult(err); }
+    },
+  );
+
+  server.tool(
+    "blumira_add_org_finding_comment", desc.ADD_ORG_FINDING_COMMENT_DESCRIPTION,
+    {
+      finding_id: z.string().describe("UUID of the finding"),
+      body: z.string().describe("Comment body (may contain HTML)"),
+      sender: z.string().describe("UUID of the person creating the comment"),
+    },
+    async (args) => {
+      try {
+        const params: AddCommentParams = { body: args.body, sender: args.sender };
+        return jsonResult(await getClient().addOrgFindingComment(args.finding_id, params));
+      } catch (err) { return errorResult(err); }
+    },
+  );
+
+  // MSP Account Finding Actions (POST)
+  server.tool(
+    "blumira_resolve_account_finding", desc.RESOLVE_ACCOUNT_FINDING_DESCRIPTION,
+    {
+      account_id: z.string().describe("UUID of the MSP account"),
+      finding_id: z.string().describe("UUID of the finding to resolve"),
+      resolution: z.number().int().positive().describe("Resolution ID (e.g. 10=Valid, 20=False Positive, 30=No Action Needed, 40=Risk Accepted)"),
+      resolution_notes: z.string().optional().describe("Optional notes explaining the resolution"),
+    },
+    async (args) => {
+      try {
+        const params: ResolveParams = { resolution: args.resolution };
+        if (args.resolution_notes !== undefined) params.resolution_notes = args.resolution_notes;
+        return jsonResult(await getClient().resolveAccountFinding(args.account_id, args.finding_id, params));
+      } catch (err) { return errorResult(err); }
+    },
+  );
+
+  server.tool(
+    "blumira_assign_account_finding", desc.ASSIGN_ACCOUNT_FINDING_DESCRIPTION,
+    {
+      account_id: z.string().describe("UUID of the MSP account"),
+      finding_id: z.string().describe("UUID of the finding"),
+      owners: z.array(z.string()).describe("Array of person UUIDs to assign. Empty array clears owners."),
+      owner_type: z.string().describe("Type of owners (lowercase), e.g. 'responder', 'administrator'"),
+    },
+    async (args) => {
+      try {
+        const params: AssignOwnersParams = { owners: args.owners, owner_type: args.owner_type };
+        return jsonResult(await getClient().assignAccountFinding(args.account_id, args.finding_id, params));
+      } catch (err) { return errorResult(err); }
+    },
+  );
+
+  server.tool(
+    "blumira_add_account_finding_comment", desc.ADD_ACCOUNT_FINDING_COMMENT_DESCRIPTION,
+    {
+      account_id: z.string().describe("UUID of the MSP account"),
+      finding_id: z.string().describe("UUID of the finding"),
+      body: z.string().describe("Comment body (may contain HTML)"),
+      sender: z.string().describe("UUID of the person creating the comment"),
+    },
+    async (args) => {
+      try {
+        const params: AddCommentParams = { body: args.body, sender: args.sender };
+        return jsonResult(await getClient().addAccountFindingComment(args.account_id, args.finding_id, params));
+      } catch (err) { return errorResult(err); }
+    },
+  );
+
+  // Org Users
+  server.tool(
+    "blumira_list_org_users", desc.LIST_ORG_USERS_DESCRIPTION,
+    { ...PaginationSchema, ...ReturnAllSchema },
+    async (args) => {
+      try { return jsonResult(await getClient().listOrgUsers(toPagination(args), args.return_all ?? false)); }
+      catch (err) { return errorResult(err); }
+    },
+  );
+
+  // MSP Account Users
+  server.tool(
+    "blumira_list_account_users", desc.LIST_ACCOUNT_USERS_DESCRIPTION,
+    { account_id: z.string().describe("UUID of the MSP account"), ...PaginationSchema, ...ReturnAllSchema },
+    async (args) => {
+      try { return jsonResult(await getClient().listAccountUsers(args.account_id, toPagination(args), args.return_all ?? false)); }
+      catch (err) { return errorResult(err); }
+    },
+  );
+
+  // Resolutions
+  server.tool(
+    "blumira_list_resolutions", desc.LIST_RESOLUTIONS_DESCRIPTION,
+    {},
+    async () => {
+      try { return jsonResult(await getClient().listResolutions()); }
       catch (err) { return errorResult(err); }
     },
   );

@@ -56,6 +56,24 @@ export interface PaginatedResponse<T = Record<string, unknown>> {
   meta?: { total?: number; page?: number; page_size?: number };
 }
 
+export interface ResolveParams {
+  [key: string]: unknown;
+  resolution: number;
+  resolution_notes?: string;
+}
+
+export interface AssignOwnersParams {
+  [key: string]: unknown;
+  owners: string[];
+  owner_type: string;
+}
+
+export interface AddCommentParams {
+  [key: string]: unknown;
+  body: string;
+  sender: string;
+}
+
 // ─── Validation helpers ────────────────────────────────────────────────────────
 
 function validateUUID(value: string, label: string): void {
@@ -423,5 +441,129 @@ export class BlumiraClient {
       "GET", `/org/findings/${findingId}/details`,
     );
     return response.data ?? (response as Record<string, unknown>);
+  }
+
+  // ─── Org Finding Actions (POST) ──────────────────────────────────────────
+
+  async resolveOrgFinding(
+    findingId: string,
+    params: ResolveParams,
+  ): Promise<Record<string, unknown>> {
+    validateUUID(findingId, "finding_id");
+    if (!Number.isInteger(params.resolution) || params.resolution < 1) {
+      throw new BlumiraValidationError("resolution must be a positive integer (e.g. 10=Valid, 20=False Positive, 30=No Action Needed, 40=Risk Accepted).");
+    }
+    if (params.resolution_notes !== undefined && typeof params.resolution_notes !== "string") {
+      throw new BlumiraValidationError("resolution_notes must be a string.");
+    }
+    return this.request("POST", `/org/findings/${findingId}/resolve`, params);
+  }
+
+  async assignOrgFinding(
+    findingId: string,
+    params: AssignOwnersParams,
+  ): Promise<Record<string, unknown>> {
+    validateUUID(findingId, "finding_id");
+    if (!Array.isArray(params.owners)) {
+      throw new BlumiraValidationError("owners must be an array of person UUIDs.");
+    }
+    if (!params.owner_type || typeof params.owner_type !== "string") {
+      throw new BlumiraValidationError("owner_type is required and must be a lowercase string.");
+    }
+    return this.request("POST", `/org/findings/${findingId}/assign`, params);
+  }
+
+  async addOrgFindingComment(
+    findingId: string,
+    params: AddCommentParams,
+  ): Promise<Record<string, unknown>> {
+    validateUUID(findingId, "finding_id");
+    if (!params.body || typeof params.body !== "string" || !params.body.trim()) {
+      throw new BlumiraValidationError("body is required and must be a non-empty string.");
+    }
+    validateUUID(params.sender, "sender");
+    return this.request("POST", `/org/findings/${findingId}/comments`, params);
+  }
+
+  // ─── MSP Account Finding Actions (POST) ──────────────────────────────────
+
+  async resolveAccountFinding(
+    accountId: string,
+    findingId: string,
+    params: ResolveParams,
+  ): Promise<Record<string, unknown>> {
+    validateUUID(accountId, "account_id");
+    validateUUID(findingId, "finding_id");
+    if (!Number.isInteger(params.resolution) || params.resolution < 1) {
+      throw new BlumiraValidationError("resolution must be a positive integer (e.g. 10=Valid, 20=False Positive, 30=No Action Needed, 40=Risk Accepted).");
+    }
+    if (params.resolution_notes !== undefined && typeof params.resolution_notes !== "string") {
+      throw new BlumiraValidationError("resolution_notes must be a string.");
+    }
+    return this.request("POST", `/msp/accounts/${accountId}/findings/${findingId}/resolve`, params);
+  }
+
+  async assignAccountFinding(
+    accountId: string,
+    findingId: string,
+    params: AssignOwnersParams,
+  ): Promise<Record<string, unknown>> {
+    validateUUID(accountId, "account_id");
+    validateUUID(findingId, "finding_id");
+    if (!Array.isArray(params.owners)) {
+      throw new BlumiraValidationError("owners must be an array of person UUIDs.");
+    }
+    if (!params.owner_type || typeof params.owner_type !== "string") {
+      throw new BlumiraValidationError("owner_type is required and must be a lowercase string.");
+    }
+    return this.request("POST", `/msp/accounts/${accountId}/findings/${findingId}/assign`, params);
+  }
+
+  async addAccountFindingComment(
+    accountId: string,
+    findingId: string,
+    params: AddCommentParams,
+  ): Promise<Record<string, unknown>> {
+    validateUUID(accountId, "account_id");
+    validateUUID(findingId, "finding_id");
+    if (!params.body || typeof params.body !== "string" || !params.body.trim()) {
+      throw new BlumiraValidationError("body is required and must be a non-empty string.");
+    }
+    validateUUID(params.sender, "sender");
+    return this.request("POST", `/msp/accounts/${accountId}/findings/${findingId}/comments`, params);
+  }
+
+  // ─── Org Users ───────────────────────────────────────────────────────────
+
+  async listOrgUsers(
+    pagination?: PaginationParams,
+    returnAll = false,
+  ): Promise<Record<string, unknown>[]> {
+    validatePagination(pagination);
+    if (returnAll) return this.requestAllPages("/org/users", pagination);
+    const response = await this.request<PaginatedResponse>("GET", "/org/users", pagination);
+    return response.data ?? [];
+  }
+
+  // ─── MSP Account Users ───────────────────────────────────────────────────
+
+  async listAccountUsers(
+    accountId: string,
+    pagination?: PaginationParams,
+    returnAll = false,
+  ): Promise<Record<string, unknown>[]> {
+    validateUUID(accountId, "account_id");
+    validatePagination(pagination);
+    if (returnAll) return this.requestAllPages(`/msp/accounts/${accountId}/users`, pagination);
+    const response = await this.request<PaginatedResponse>(
+      "GET", `/msp/accounts/${accountId}/users`, pagination,
+    );
+    return response.data ?? [];
+  }
+
+  // ─── Resolutions ─────────────────────────────────────────────────────────
+
+  async listResolutions(): Promise<Record<string, unknown>> {
+    return this.request("GET", "/resolutions");
   }
 }

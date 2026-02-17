@@ -106,13 +106,14 @@ src/
 - **Structured errors** (`BlumiraAuthenticationError`, `BlumiraApiError`, etc.) give the LLM actionable context when things go wrong.
 - **Secret redaction** ensures tokens never appear in log output.
 
-## Available Tools
+## Available Tools (27 total)
 
-### Health
+### Health & Reference Data
 
 | Tool | Description |
 |------|-------------|
 | `blumira_health` | Check the health status of the Blumira API |
+| `blumira_list_resolutions` | Get available resolution options for findings (IDs and names) |
 
 ### MSP Accounts
 
@@ -120,6 +121,12 @@ src/
 |------|-------------|
 | `blumira_list_accounts` | List MSP accounts |
 | `blumira_get_account` | Get a single MSP account by ID |
+
+### MSP Account Users
+
+| Tool | Description |
+|------|-------------|
+| `blumira_list_account_users` | List users for a specific MSP account |
 
 ### MSP Account Findings
 
@@ -129,6 +136,9 @@ src/
 | `blumira_list_all_accounts_findings` | List findings across all MSP accounts |
 | `blumira_get_account_finding` | Get a specific finding for an MSP account |
 | `blumira_get_account_finding_comments` | List comments for a finding in an MSP account |
+| `blumira_resolve_account_finding` | **POST** — Resolve a finding for an MSP account |
+| `blumira_assign_account_finding` | **POST** — Assign owners to a finding for an MSP account |
+| `blumira_add_account_finding_comment` | **POST** — Add a comment to a finding for an MSP account |
 
 ### MSP Account Agent Devices
 
@@ -143,6 +153,12 @@ src/
 |------|-------------|
 | `blumira_list_account_agent_keys` | List agent keys for an MSP account |
 | `blumira_get_account_agent_key` | Get a specific agent key for an MSP account |
+
+### Org Users
+
+| Tool | Description |
+|------|-------------|
+| `blumira_list_org_users` | List users for the current organization |
 
 ### Org Agent Devices
 
@@ -166,6 +182,9 @@ src/
 | `blumira_get_org_finding` | Get a specific finding |
 | `blumira_get_org_finding_comments` | List comments for a finding |
 | `blumira_get_org_finding_details` | Get detailed information for a finding |
+| `blumira_resolve_org_finding` | **POST** — Resolve a finding |
+| `blumira_assign_org_finding` | **POST** — Assign owners to a finding |
+| `blumira_add_org_finding_comment` | **POST** — Add a comment to a finding |
 
 ## Common Parameters
 

@@ -309,15 +309,300 @@ Common Use Cases:
 export const GET_ORG_FINDING_DETAILS_DESCRIPTION = `\
 Get detailed information for a finding in the current organization.
 
-Returns enriched finding data beyond what the standard get endpoint provides.
+Returns enriched finding data beyond what the standard get endpoint provides,
+including category_name, jurisdiction_name, owners, resolution details,
+executive summary (<=512 chars), and a direct URL to the finding in the UI.
 
 Args:
   finding_id: UUID of the finding (required).
 
 Returns:
-  Detailed finding object with extended evidence and context data.
+  Detailed finding object with extended evidence and context data including:
+  - category_name: e.g. "Malicious Code", "Unauthorized Access Attempt"
+  - jurisdiction_name: e.g. "administrator", "responder"
+  - owners: object with types and UUIDs of finding owners
+  - resolution / resolution_name / resolution_notes: resolution status
+  - summary: executive summary (<=512 characters)
+  - url: direct link to the finding in the Blumira UI
 
 Common Use Cases:
   - Deep forensic investigation.
   - Evidence gathering for reports.
+  - Getting the UI URL to share with team members.
+`;
+
+// ─── Org Finding Actions (POST) ────────────────────────────────────────────
+
+export const RESOLVE_ORG_FINDING_DESCRIPTION = `\
+Resolve a security finding for the current organization.
+
+Changes a finding's status to resolved with a specified resolution type
+and optional notes. This is a write operation that modifies finding state.
+
+IMPORTANT: Before calling this tool, use blumira_list_resolutions to get
+the valid resolution IDs for your environment.
+
+Args:
+  finding_id: UUID of the finding to resolve (required).
+  resolution: Resolution ID (required). Standard values:
+    - 10 = Valid
+    - 20 = False Positive
+    - 30 = No Action Needed
+    - 40 = Risk Accepted
+  resolution_notes: Optional free-text notes explaining the resolution (optional).
+
+Returns:
+  Updated finding detail object with the new resolution status.
+
+Common Use Cases:
+  - Close out findings after investigation.
+  - Mark false positives to reduce noise.
+  - Document risk acceptance decisions with notes.
+  - Bulk triage of low-priority findings.
+
+Raises:
+  Error if finding_id is empty, resolution is invalid, or the finding does not exist.
+`;
+
+export const ASSIGN_ORG_FINDING_DESCRIPTION = `\
+Assign owners to a security finding for the current organization.
+
+Sets or updates the owners of a finding. Pass an empty owners array to
+clear all owners for the specified owner_type.
+
+IMPORTANT: Use blumira_list_org_users to obtain valid user UUIDs before
+calling this tool.
+
+Args:
+  finding_id: UUID of the finding (required).
+  owners: Array of person UUIDs to assign as owners (required).
+    Pass an empty array [] to clear all owners for the given owner_type.
+  owner_type: Type of owners to assign (required). Must be lowercase.
+    Common values: "responder", "administrator".
+
+Returns:
+  Updated finding detail object with the new owner assignments.
+
+Common Use Cases:
+  - Assign a finding to a specific analyst for investigation.
+  - Escalate a finding to an administrator.
+  - Clear ownership when reassigning workload.
+
+Raises:
+  Error if finding_id is empty, owners is not an array, or owner_type is missing.
+`;
+
+export const ADD_ORG_FINDING_COMMENT_DESCRIPTION = `\
+Add a comment to a security finding for the current organization.
+
+Posts a new analyst note or comment to a finding's collaboration thread.
+Comments support HTML content for rich formatting.
+
+IMPORTANT: Use blumira_list_org_users to obtain the sender UUID (your user ID)
+before calling this tool.
+
+Args:
+  finding_id: UUID of the finding (required).
+  body: Comment body text (required, non-empty). May contain HTML for
+    rich formatting (bold, links, lists, etc.).
+  sender: UUID of the person creating the comment (required).
+    Use blumira_list_org_users to find your user ID.
+
+Returns:
+  Created comment object with:
+  - id: Comment ID
+  - body: HTML body of the comment
+  - subject: Comment subject
+  - age: Age in seconds
+  - sender: { id, first_name, last_name, email }
+
+Common Use Cases:
+  - Document investigation steps and findings.
+  - Collaborate with team members on a finding.
+  - Add context or evidence notes during triage.
+  - Maintain an audit trail of analyst actions.
+
+Raises:
+  Error if finding_id or sender is empty, or body is blank.
+`;
+
+// ─── MSP Account Finding Actions (POST) ────────────────────────────────────
+
+export const RESOLVE_ACCOUNT_FINDING_DESCRIPTION = `\
+Resolve a security finding for a specific MSP account.
+
+Changes a finding's status to resolved with a specified resolution type
+and optional notes. This is a write operation that modifies finding state.
+
+IMPORTANT: Before calling this tool, use blumira_list_resolutions to get
+the valid resolution IDs for your environment.
+
+Args:
+  account_id: UUID of the MSP account (required).
+  finding_id: UUID of the finding to resolve (required).
+  resolution: Resolution ID (required). Standard values:
+    - 10 = Valid
+    - 20 = False Positive
+    - 30 = No Action Needed
+    - 40 = Risk Accepted
+  resolution_notes: Optional free-text notes explaining the resolution (optional).
+
+Returns:
+  Updated finding detail object with the new resolution status.
+
+Common Use Cases:
+  - Resolve findings for a specific managed customer.
+  - Mark false positives during MSP-level triage.
+  - Document risk acceptance with notes for compliance.
+
+Raises:
+  Error if account_id or finding_id is empty, or resolution is invalid.
+`;
+
+export const ASSIGN_ACCOUNT_FINDING_DESCRIPTION = `\
+Assign owners to a security finding for a specific MSP account.
+
+Sets or updates the owners of a finding within a managed account.
+Pass an empty owners array to clear all owners for the specified owner_type.
+
+IMPORTANT: Use blumira_list_account_users to obtain valid user UUIDs for
+the target account before calling this tool.
+
+Args:
+  account_id: UUID of the MSP account (required).
+  finding_id: UUID of the finding (required).
+  owners: Array of person UUIDs to assign as owners (required).
+    Pass an empty array [] to clear all owners for the given owner_type.
+  owner_type: Type of owners to assign (required). Must be lowercase.
+    Common values: "responder", "administrator".
+
+Returns:
+  Updated finding detail object with the new owner assignments.
+
+Common Use Cases:
+  - Assign findings to analysts within a managed account.
+  - Escalate findings to an account administrator.
+  - Clear ownership when reassigning workload.
+
+Raises:
+  Error if account_id or finding_id is empty, owners is not an array, or owner_type is missing.
+`;
+
+export const ADD_ACCOUNT_FINDING_COMMENT_DESCRIPTION = `\
+Add a comment to a security finding for a specific MSP account.
+
+Posts a new analyst note or comment to a finding's collaboration thread
+within a managed account. Comments support HTML content.
+
+IMPORTANT: Use blumira_list_account_users to obtain the sender UUID
+for the target account before calling this tool.
+
+Args:
+  account_id: UUID of the MSP account (required).
+  finding_id: UUID of the finding (required).
+  body: Comment body text (required, non-empty). May contain HTML.
+  sender: UUID of the person creating the comment (required).
+    Use blumira_list_account_users to find valid user IDs.
+
+Returns:
+  Created comment object with id, body, subject, age, and sender info.
+
+Common Use Cases:
+  - Document investigation steps for a managed customer's finding.
+  - Collaborate across MSP team on an account finding.
+  - Maintain audit trail for compliance.
+
+Raises:
+  Error if account_id, finding_id, or sender is empty, or body is blank.
+`;
+
+// ─── Org Users ─────────────────────────────────────────────────────────────
+
+export const LIST_ORG_USERS_DESCRIPTION = `\
+List users for the current organization.
+
+Retrieves a paginated list of users in your organization.
+Use return_all=true to automatically page through all results.
+
+IMPORTANT: This tool is essential for finding user UUIDs needed by
+blumira_assign_org_finding and blumira_add_org_finding_comment.
+
+Args:
+  page: Page number (1-based, optional).
+  page_size: Items per page, 1–200 (optional, default 50).
+  return_all: If true, fetches every page automatically (default false).
+
+Returns:
+  Array of user objects, each containing:
+  - id: UUID of the user
+  - email: User email address
+  - first_name: User first name
+  - last_name: User last name
+  - org_roles: List of roles for this user in the organization
+
+Common Use Cases:
+  - Look up user UUIDs before assigning findings or adding comments.
+  - Audit user access and roles in the organization.
+  - Build a user directory for the security team.
+`;
+
+// ─── MSP Account Users ─────────────────────────────────────────────────────
+
+export const LIST_ACCOUNT_USERS_DESCRIPTION = `\
+List users for a specific MSP account.
+
+Retrieves a paginated list of users in a managed account.
+Use return_all=true to automatically page through all results.
+
+IMPORTANT: This tool is essential for finding user UUIDs needed by
+blumira_assign_account_finding and blumira_add_account_finding_comment.
+
+Args:
+  account_id: UUID of the MSP account (required).
+  page: Page number (1-based, optional).
+  page_size: Items per page, 1–200 (optional, default 50).
+  return_all: If true, fetches every page automatically (default false).
+
+Returns:
+  Array of user objects, each containing:
+  - id: UUID of the user
+  - email: User email address
+  - first_name: User first name
+  - last_name: User last name
+  - org_roles: List of roles for this user in the account
+
+Common Use Cases:
+  - Look up user UUIDs before assigning findings or adding comments for an account.
+  - Audit user access within a managed account.
+`;
+
+// ─── Resolutions ───────────────────────────────────────────────────────────
+
+export const LIST_RESOLUTIONS_DESCRIPTION = `\
+Get the list of available resolution options for findings.
+
+Returns all valid resolution IDs and their names that can be used with
+blumira_resolve_org_finding and blumira_resolve_account_finding.
+
+IMPORTANT: Always call this tool before resolving a finding to ensure
+you use a valid resolution ID.
+
+Args:
+  None.
+
+Returns:
+  List of resolution objects, each containing:
+  - id: Resolution ID (integer)
+  - name: Human-readable resolution name
+
+  Standard resolutions:
+  - 10 = Valid
+  - 20 = False Positive
+  - 30 = No Action Needed
+  - 40 = Risk Accepted
+
+Common Use Cases:
+  - Look up valid resolution IDs before resolving findings.
+  - Display resolution options to the user for selection.
+  - Validate resolution values in workflows.
 `;
