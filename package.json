@@ -4,6 +4,21 @@
   "description": "MCP (Model Context Protocol) server for the Blumira Public API",
   "license": "MIT",
   "author": "mkellar",
+  "homepage": "https://github.com/mkellar-blumira/blumira-mcp",
+  "bugs": {
+    "url": "https://github.com/mkellar-blumira/blumira-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkellar-blumira/blumira-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "blumira",
+    "security",
+    "siem"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "bin": {

@@ -10,7 +10,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server for t
 ## Quick Start
 
 ```bash
-git clone https://gitlab.com/mkellar/blumira-mcp.git
+git clone https://github.com/mkellar-blumira/blumira-mcp.git
 cd blumira-mcp
 npm install
 npm run build
@@ -105,6 +105,30 @@ src/
 - **tools/** contains thin adapters that read settings, construct a client, delegate to the library, and format the result for MCP.
 - **Structured errors** (`BlumiraAuthenticationError`, `BlumiraApiError`, etc.) give the LLM actionable context when things go wrong.
 - **Secret redaction** ensures tokens never appear in log output.
+
+## MCP Design Approach
+
+This project is also informed by strong public MCP implementations such as
+[Cloudflare's `mcp-server-cloudflare`](https://github.com/cloudflare/mcp-server-cloudflare),
+which is a great example of client usability, scoped tool design, and
+operator-friendly documentation.
+
+Ideas we are adopting here:
+
+- **Be explicit about transport and setup** so users can get connected from Cursor,
+  Claude Desktop, Docker, or direct stdio without guessing.
+- **Keep tools narrow and predictable** instead of building one overloaded tool
+  with many hidden behaviors.
+- **Write descriptions for LLM tool selection** so the client can choose the right
+  Blumira action with fewer retries.
+- **Document operational usage patterns** such as paging, limiting large result sets,
+  and splitting evidence-heavy workflows into smaller steps.
+- **Separate protocol glue from API logic** so the Blumira client stays reusable and
+  testable outside MCP.
+
+This repository remains a single Blumira-focused server rather than a multi-server
+platform, but the usability and documentation standards from that Cloudflare repo
+are a good bar to aim for.
 
 ## Available Tools (30 total)
 
@@ -213,6 +237,16 @@ src/
 - `status_modified_by` — UUID of status modifier
 - `type` — type ID
 - `advanced_filters` — additional raw Blumira query parameters for newer API operators such as `name_contains`, `name_regex`, `priority_in`, `status_not_in`, or `created_lt`
+
+## Troubleshooting
+
+If the MCP client struggles with long or interrupted responses:
+
+- Be specific in your prompt and scope the request to one org/account workflow at a time.
+- Use `page_size`, `limit`, date filters, and `advanced_filters` to keep results small.
+- Fetch evidence only when needed, since evidence rows can expand the response quickly.
+- Prefer a sequence of smaller calls (list findings -> get finding -> get evidence)
+  over one broad request that pulls everything at once.
 
 ## Development
 
