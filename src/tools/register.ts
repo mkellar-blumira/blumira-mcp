@@ -8,7 +8,7 @@
  *   3. Delegates to the library
  *   4. Formats the result for MCP (JSON text content)
  *
- * This mirrors the purple-mcp "tools vs libs" architecture.
+ * This follows the project's "tools vs libs" architecture.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

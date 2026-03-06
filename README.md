@@ -84,7 +84,7 @@ BLUMIRA_ACCESS_TOKEN="your-token" node dist/index.js
 
 ## Architecture
 
-The project follows a **tools vs libs** separation inspired by [SentinelOne's purple-mcp](https://github.com/Sentinel-One/purple-mcp):
+The project follows a **tools vs libs** separation so API business logic stays isolated from MCP transport concerns:
 
 ```
 src/

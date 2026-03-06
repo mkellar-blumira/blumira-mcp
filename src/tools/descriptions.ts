@@ -1,7 +1,7 @@
 /**
  * Rich tool descriptions for the Blumira MCP server.
  *
- * Following the purple-mcp pattern, each tool gets a detailed multi-line
+ * Each tool gets a detailed multi-line
  * description that tells the LLM exactly what the tool does, what it
  * returns, common use-cases, and any caveats.  This dramatically
  * improves tool-selection accuracy.
