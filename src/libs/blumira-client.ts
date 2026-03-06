@@ -29,6 +29,7 @@ export interface PaginationParams {
   [key: string]: unknown;
   page?: number;
   page_size?: number;
+  limit?: number;
   order_by?: string;
 }
 
@@ -54,6 +55,15 @@ export interface PaginatedResponse<T = Record<string, unknown>> {
   data: T[];
   links?: { next?: string; previous?: string };
   meta?: { total?: number; page?: number; page_size?: number };
+}
+
+export interface EvidenceResponse {
+  [key: string]: unknown;
+  data: Record<string, unknown>[];
+  evidence_keys?: string[];
+  links?: { next?: string; previous?: string };
+  meta?: { total?: number; page?: number; page_size?: number; returned?: number };
+  status?: string;
 }
 
 export interface ResolveParams {
@@ -91,6 +101,11 @@ function validatePagination(params?: PaginationParams): void {
   if (params.page_size !== undefined) {
     if (!Number.isInteger(params.page_size) || params.page_size < 1 || params.page_size > 200) {
       throw new BlumiraValidationError("page_size must be an integer between 1 and 200.");
+    }
+  }
+  if (params.limit !== undefined) {
+    if (!Number.isInteger(params.limit) || params.limit < 1 || params.limit > 5000) {
+      throw new BlumiraValidationError("limit must be an integer between 1 and 5000.");
     }
   }
 }
@@ -176,14 +191,25 @@ export class BlumiraClient {
     params?: Record<string, unknown>,
   ): Promise<T[]> {
     const allItems: T[] = [];
-    const pageSize = typeof params?.page_size === "number" ? params.page_size : 50;
-    let page = 1;
+    const requestedPageSize = typeof params?.page_size === "number" ? params.page_size : 50;
+    const maxItems = typeof params?.limit === "number" ? params.limit : undefined;
+    let page = typeof params?.page === "number" ? params.page : 1;
 
     while (true) {
+      const remaining = maxItems === undefined
+        ? requestedPageSize
+        : Math.max(0, maxItems - allItems.length);
+      if (remaining === 0) break;
+
       const response = await this.request<PaginatedResponse<T>>(
         "GET",
         endpoint,
-        { ...params, page, page_size: pageSize },
+        {
+          ...params,
+          page,
+          page_size: Math.min(requestedPageSize, remaining),
+          limit: undefined,
+        },
       );
 
       const items = response.data ?? (response as unknown);
@@ -200,6 +226,10 @@ export class BlumiraClient {
 
       const nextLink = response.links?.next;
       const returnedCount = Array.isArray(items) ? items.length : 0;
+      if (maxItems !== undefined && allItems.length >= maxItems) {
+        allItems.length = maxItems;
+        break;
+      }
       if (!nextLink || returnedCount === 0) break;
       page += 1;
     }
@@ -207,23 +237,80 @@ export class BlumiraClient {
     return allItems;
   }
 
+  private async requestAllEvidence(
+    endpoint: string,
+    params?: PaginationParams,
+  ): Promise<EvidenceResponse> {
+    const requestedPageSize = typeof params?.page_size === "number" ? params.page_size : 50;
+    const maxItems = typeof params?.limit === "number" ? params.limit : undefined;
+    const startingPage = typeof params?.page === "number" ? params.page : 1;
+    let page = startingPage;
+    const allRows: Record<string, unknown>[] = [];
+    let evidenceKeys: string[] | undefined;
+    let status: string | undefined;
+    let meta: EvidenceResponse["meta"];
+
+    while (true) {
+      const remaining = maxItems === undefined
+        ? requestedPageSize
+        : Math.max(0, maxItems - allRows.length);
+      if (remaining === 0) break;
+
+      const response = await this.request<EvidenceResponse>(
+        "GET",
+        endpoint,
+        {
+          ...params,
+          page,
+          page_size: Math.min(requestedPageSize, remaining),
+          limit: undefined,
+        },
+      );
+
+      if (!evidenceKeys && Array.isArray(response.evidence_keys)) {
+        evidenceKeys = response.evidence_keys;
+      }
+      if (!status && response.status) {
+        status = response.status;
+      }
+      if (Array.isArray(response.data)) {
+        allRows.push(...response.data);
+      }
+      meta = response.meta;
+
+      const nextLink = response.links?.next;
+      const returnedCount = Array.isArray(response.data) ? response.data.length : 0;
+      if (maxItems !== undefined && allRows.length >= maxItems) {
+        allRows.length = maxItems;
+        break;
+      }
+      if (!nextLink || returnedCount === 0) break;
+      page += 1;
+    }
+
+    return {
+      status: status ?? "OK",
+      evidence_keys: evidenceKeys ?? [],
+      data: allRows,
+      links: {},
+      meta: {
+        ...meta,
+        page: startingPage,
+        page_size: requestedPageSize,
+        returned: allRows.length,
+      },
+    };
+  }
+
   private buildFindingFilters(filters?: FindingFilters): Record<string, unknown> {
     if (!filters) return {};
     const qs: Record<string, unknown> = {};
-    if (filters.blocked !== undefined) qs.blocked = filters.blocked;
-    if (filters.category) qs.category = filters.category;
-    if (filters.created_after) qs.created_after = filters.created_after;
-    if (filters.created_before) qs.created_before = filters.created_before;
-    if (filters.created_by) qs.created_by = filters.created_by;
-    if (filters.modified_after) qs.modified_after = filters.modified_after;
-    if (filters.modified_before) qs.modified_before = filters.modified_before;
-    if (filters.modified_by) qs.modified_by = filters.modified_by;
-    if (filters.name) qs.name = filters.name;
-    if (filters.priority) qs.priority = filters.priority;
-    if (filters.resolution) qs.resolution = filters.resolution;
-    if (filters.status) qs.status = filters.status;
-    if (filters.status_modified_by) qs.status_modified_by = filters.status_modified_by;
-    if (filters.type) qs.type = filters.type;
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null) continue;
+      if (typeof value === "string" && !value.trim()) continue;
+      if (Array.isArray(value) && value.length === 0) continue;
+      qs[key] = value;
+    }
     return qs;
   }
 
@@ -307,6 +394,25 @@ export class BlumiraClient {
       "GET", `/msp/accounts/${accountId}/findings/${findingId}/comments`,
     );
     return Array.isArray(response.data) ? response.data : [response.data ?? response];
+  }
+
+  async getAccountFindingEvidence(
+    accountId: string,
+    findingId: string,
+    pagination?: PaginationParams,
+    returnAll = false,
+  ): Promise<EvidenceResponse> {
+    validateUUID(accountId, "account_id");
+    validateUUID(findingId, "finding_id");
+    validatePagination(pagination);
+    if (returnAll) {
+      return this.requestAllEvidence(`/msp/accounts/${accountId}/findings/${findingId}/evidence`, pagination);
+    }
+    return this.request<EvidenceResponse>(
+      "GET",
+      `/msp/accounts/${accountId}/findings/${findingId}/evidence`,
+      pagination,
+    );
   }
 
   // ─── MSP Account Agent Devices ───────────────────────────────────────────
@@ -441,6 +547,19 @@ export class BlumiraClient {
       "GET", `/org/findings/${findingId}/details`,
     );
     return response.data ?? (response as Record<string, unknown>);
+  }
+
+  async getOrgFindingEvidence(
+    findingId: string,
+    pagination?: PaginationParams,
+    returnAll = false,
+  ): Promise<EvidenceResponse> {
+    validateUUID(findingId, "finding_id");
+    validatePagination(pagination);
+    if (returnAll) {
+      return this.requestAllEvidence(`/org/findings/${findingId}/evidence`, pagination);
+    }
+    return this.request<EvidenceResponse>("GET", `/org/findings/${findingId}/evidence`, pagination);
   }
 
   // ─── Org Finding Actions (POST) ──────────────────────────────────────────

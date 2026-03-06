@@ -50,6 +50,7 @@ function toPagination(args: Record<string, unknown>): PaginationParams | undefin
   const p: PaginationParams = {};
   if (args.page !== undefined) p.page = args.page as number;
   if (args.page_size !== undefined) p.page_size = args.page_size as number;
+  if (args.limit !== undefined) p.limit = args.limit as number;
   if (args.order_by !== undefined) p.order_by = args.order_by as string;
   return Object.keys(p).length > 0 ? p : undefined;
 }
@@ -68,6 +69,14 @@ function toFindingFilters(args: Record<string, unknown>): FindingFilters | undef
       hasFilter = true;
     }
   }
+  if (
+    args.advanced_filters &&
+    typeof args.advanced_filters === "object" &&
+    !Array.isArray(args.advanced_filters)
+  ) {
+    Object.assign(f, args.advanced_filters as Record<string, unknown>);
+    hasFilter = true;
+  }
   return hasFilter ? f : undefined;
 }
 
@@ -76,6 +85,7 @@ function toFindingFilters(args: Record<string, unknown>): FindingFilters | undef
 const PaginationSchema = {
   page: z.number().int().positive().optional().describe("Page number (1-based)"),
   page_size: z.number().int().min(1).max(200).optional().describe("Items per page (1–200)"),
+  limit: z.number().int().min(1).max(5000).optional().describe("Maximum number of records to return. When return_all=true, this caps the total fetched across pages."),
   order_by: z.string().optional().describe("Ordering, e.g. 'created;desc'"),
 };
 
@@ -98,6 +108,15 @@ const FindingFilterSchema = {
   status: z.number().int().positive().optional().describe("Status ID"),
   status_modified_by: z.string().optional().describe("UUID of status modifier"),
   type: z.number().int().positive().optional().describe("Type ID"),
+  advanced_filters: z.record(
+    z.string(),
+    z.union([
+      z.string(),
+      z.number(),
+      z.boolean(),
+      z.array(z.union([z.string(), z.number(), z.boolean()])),
+    ]),
+  ).optional().describe("Additional raw Blumira query parameters for newer or advanced finding filters, such as name_contains, name_regex, priority_in, status_not_in, or created_lt."),
 };
 
 // ─── Registration ──────────────────────────────────────────────────────────────
@@ -161,6 +180,15 @@ export function registerTools(server: McpServer): void {
     { account_id: z.string().describe("UUID of the MSP account"), finding_id: z.string().describe("UUID of the finding") },
     async (args) => {
       try { return jsonResult(await getClient().getAccountFindingComments(args.account_id, args.finding_id)); }
+      catch (err) { return errorResult(err); }
+    },
+  );
+
+  server.tool(
+    "blumira_get_account_finding_evidence", desc.GET_ACCOUNT_FINDING_EVIDENCE_DESCRIPTION,
+    { account_id: z.string().describe("UUID of the MSP account"), finding_id: z.string().describe("UUID of the finding"), ...PaginationSchema, ...ReturnAllSchema },
+    async (args) => {
+      try { return jsonResult(await getClient().getAccountFindingEvidence(args.account_id, args.finding_id, toPagination(args), args.return_all ?? false)); }
       catch (err) { return errorResult(err); }
     },
   );
@@ -274,6 +302,15 @@ export function registerTools(server: McpServer): void {
     { finding_id: z.string().describe("UUID of the finding") },
     async (args) => {
       try { return jsonResult(await getClient().getOrgFindingDetails(args.finding_id)); }
+      catch (err) { return errorResult(err); }
+    },
+  );
+
+  server.tool(
+    "blumira_get_org_finding_evidence", desc.GET_ORG_FINDING_EVIDENCE_DESCRIPTION,
+    { finding_id: z.string().describe("UUID of the finding"), ...PaginationSchema, ...ReturnAllSchema },
+    async (args) => {
+      try { return jsonResult(await getClient().getOrgFindingEvidence(args.finding_id, toPagination(args), args.return_all ?? false)); }
       catch (err) { return errorResult(err); }
     },
   );

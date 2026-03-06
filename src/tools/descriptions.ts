@@ -72,13 +72,15 @@ and other criteria.  Use return_all=true to fetch every page automatically.
 
 Args:
   account_id: UUID of the MSP account (required).
-  page, page_size, order_by: Pagination options (optional).
+  page, page_size, limit, order_by: Pagination options (optional).
   return_all: Fetch all pages automatically (default false).
   blocked, category, priority, status, type, resolution: Finding filters (optional).
   created_after, created_before: ISO 8601 timestamps for creation date range (optional).
   modified_after, modified_before: ISO 8601 timestamps for modification date range (optional).
   created_by, modified_by, status_modified_by: UUIDs of users (optional).
   name: Exact finding name (optional).
+  advanced_filters: Raw Blumira query params for newer filters such as
+    name_contains, name_regex, priority_in, status_not_in, or created_lt.
 
 Returns:
   Array of finding objects containing severity, status, timestamps, and related data.
@@ -96,9 +98,10 @@ Same filtering and pagination as list_account_findings, but aggregates
 findings from every managed account.  Useful for MSP-wide dashboards.
 
 Args:
-  page, page_size, order_by: Pagination options (optional).
+  page, page_size, limit, order_by: Pagination options (optional).
   return_all: Fetch all pages automatically (default false).
-  Finding filter parameters: Same as list_account_findings.
+  Finding filter parameters: Same as list_account_findings, including
+    advanced_filters for raw API query operators.
 
 Returns:
   Array of finding objects from all accounts.
@@ -139,6 +142,31 @@ Returns:
 Common Use Cases:
   - Review investigation history for a finding.
   - Audit trail for compliance.
+`;
+
+export const GET_ACCOUNT_FINDING_EVIDENCE_DESCRIPTION = `\
+Get evidence rows for a finding in an MSP account.
+
+Returns the field names present in the evidence rows plus paginated evidence
+data. Use return_all=true to automatically collect every evidence page, or
+use limit to cap the total number of returned rows.
+
+Args:
+  account_id: UUID of the MSP account (required).
+  finding_id: UUID of the finding (required).
+  page, page_size, limit, order_by: Evidence pagination options (optional).
+  return_all: Fetch all evidence pages automatically (default false).
+
+Returns:
+  Object containing:
+  - evidence_keys: ordered list of field names present in each row
+  - data: array of dynamic evidence row objects
+  - links/meta/status: pagination metadata from the API
+
+Common Use Cases:
+  - Pull raw evidence rows for analyst review.
+  - Export finding evidence for incident reports.
+  - Inspect rule-specific fields such as src_ip, user, or __time_matched.
 `;
 
 // ─── MSP Account Agent Devices ─────────────────────────────────────────────────
@@ -264,11 +292,13 @@ Supports the same pagination and finding filters as the MSP account
 version, but scoped to the org-level token.
 
 Args:
-  page, page_size, order_by: Pagination options (optional).
+  page, page_size, limit, order_by: Pagination options (optional).
   return_all: Fetch all pages automatically (default false).
   Finding filter parameters: blocked, category, priority, status, type,
     resolution, created_after/before, modified_after/before, name,
     created_by, modified_by, status_modified_by.
+  advanced_filters: Raw Blumira query params for newer filters such as
+    name_contains, name_regex, priority_in, status_not_in, or created_lt.
 
 Returns:
   Array of finding objects with severity, status, timestamps, and context.
@@ -329,6 +359,30 @@ Common Use Cases:
   - Deep forensic investigation.
   - Evidence gathering for reports.
   - Getting the UI URL to share with team members.
+`;
+
+export const GET_ORG_FINDING_EVIDENCE_DESCRIPTION = `\
+Get evidence rows for a finding in the current organization.
+
+Returns the field names present in the evidence rows plus paginated evidence
+data. Use return_all=true to automatically collect every evidence page, or
+use limit to cap the total number of returned rows.
+
+Args:
+  finding_id: UUID of the finding (required).
+  page, page_size, limit, order_by: Evidence pagination options (optional).
+  return_all: Fetch all evidence pages automatically (default false).
+
+Returns:
+  Object containing:
+  - evidence_keys: ordered list of field names present in each row
+  - data: array of dynamic evidence row objects
+  - links/meta/status: pagination metadata from the API
+
+Common Use Cases:
+  - Pull raw evidence rows for analyst review.
+  - Export finding evidence for incident reports.
+  - Inspect rule-specific fields such as src_ip, user, or __time_matched.
 `;
 
 // ─── Org Finding Actions (POST) ────────────────────────────────────────────

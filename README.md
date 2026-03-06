@@ -1,6 +1,6 @@
 # blumira-mcp
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server for the [Blumira Public API](https://api.blumira.com/public-api/v1/ui/). Use it with any MCP-compatible client (Cursor, Claude Desktop, etc.) to query Blumira findings, accounts, agent devices, and agent keys using natural language.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server for the [Blumira Public API](https://api.blumira.com/public-api/v1/ui/). Use it with any MCP-compatible client (Cursor, Claude Desktop, etc.) to query Blumira findings, evidence, accounts, agent devices, and agent keys using natural language.
 
 ## Requirements
 
@@ -106,7 +106,7 @@ src/
 - **Structured errors** (`BlumiraAuthenticationError`, `BlumiraApiError`, etc.) give the LLM actionable context when things go wrong.
 - **Secret redaction** ensures tokens never appear in log output.
 
-## Available Tools (27 total)
+## Available Tools (30 total)
 
 ### Health & Reference Data
 
@@ -136,6 +136,7 @@ src/
 | `blumira_list_all_accounts_findings` | List findings across all MSP accounts |
 | `blumira_get_account_finding` | Get a specific finding for an MSP account |
 | `blumira_get_account_finding_comments` | List comments for a finding in an MSP account |
+| `blumira_get_account_finding_evidence` | Get raw evidence rows for a finding in an MSP account |
 | `blumira_resolve_account_finding` | **POST** — Resolve a finding for an MSP account |
 | `blumira_assign_account_finding` | **POST** — Assign owners to a finding for an MSP account |
 | `blumira_add_account_finding_comment` | **POST** — Add a comment to a finding for an MSP account |
@@ -182,6 +183,7 @@ src/
 | `blumira_get_org_finding` | Get a specific finding |
 | `blumira_get_org_finding_comments` | List comments for a finding |
 | `blumira_get_org_finding_details` | Get detailed information for a finding |
+| `blumira_get_org_finding_evidence` | Get raw evidence rows for a finding |
 | `blumira_resolve_org_finding` | **POST** — Resolve a finding |
 | `blumira_assign_org_finding` | **POST** — Assign owners to a finding |
 | `blumira_add_org_finding_comment` | **POST** — Add a comment to a finding |
@@ -192,6 +194,7 @@ src/
 
 - `page` — page number (1-based)
 - `page_size` — items per page (1–200)
+- `limit` — maximum records to return (up to 5000); when `return_all=true`, caps the total fetched across pages
 - `order_by` — ordering expression, e.g. `created;desc`
 - `return_all` — automatically fetch all pages (default: false)
 
@@ -209,6 +212,7 @@ src/
 - `status` — status ID
 - `status_modified_by` — UUID of status modifier
 - `type` — type ID
+- `advanced_filters` — additional raw Blumira query parameters for newer API operators such as `name_contains`, `name_regex`, `priority_in`, `status_not_in`, or `created_lt`
 
 ## Development
 
